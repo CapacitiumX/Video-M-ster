@@ -2,62 +2,80 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NEURAL-CUT PRO | Edición y Voz Real</title>
+    <title>NEURAL-CUT PRO v8 | Exportador de Video</title>
     <style>
-        :root { --neon: #00d2ff; --bg: #0a0a0c; --panel: #16161a; }
-        body { margin: 0; background: var(--bg); color: white; font-family: 'Inter', sans-serif; display: grid; grid-template-rows: 60px 1fr 280px; height: 100vh; overflow: hidden; }
-        header { background: var(--panel); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; border-bottom: 2px solid #222; }
-        .logo { font-weight: 900; color: var(--neon); text-shadow: 0 0 10px var(--neon); }
-        main { display: grid; grid-template-columns: 350px 1fr; gap: 2px; background: #333; }
-        .sidebar { background: var(--panel); padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
-        #preview-box { background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10px; }
-        canvas { width: 95%; max-width: 900px; aspect-ratio: 16/9; background: #111; border: 2px solid var(--neon); border-radius: 8px; }
-        footer { background: var(--panel); border-top: 2px solid #333; overflow-x: auto; position: relative; }
-        .timeline-container { position: relative; width: 6000px; height: 100%; padding: 20px; }
-        .track { height: 60px; background: #1a1a1f; margin-bottom: 10px; border-radius: 6px; position: relative; border: 1px dashed #444; }
-        .playhead { position: absolute; top: 0; left: 0; width: 2px; height: 100%; background: #ff0000; z-index: 100; box-shadow: 0 0 8px red; pointer-events: none; }
+        :root { --neon: #00d2ff; --bg: #0a0a0c; --track: #16161a; }
+        body { margin: 0; background: var(--bg); color: white; font-family: 'Inter', sans-serif; display: grid; grid-template-rows: 60px 1fr 300px; height: 100vh; overflow: hidden; }
+        
+        /* HEADER */
+        header { background: #111; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; border-bottom: 2px solid #222; }
+        .logo { font-weight: 900; color: var(--neon); }
+        .btn-download { background: #ff0055; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; animation: pulse 2s infinite; }
+
+        /* WORKSPACE */
+        main { display: grid; grid-template-columns: 320px 1fr; gap: 2px; background: #333; overflow: hidden; }
+        .sidebar { background: #111; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
+        #preview-box { background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        canvas { width: 90%; max-width: 800px; aspect-ratio: 16/9; background: #000; border: 2px solid #333; border-radius: 8px; }
+
+        /* TIMELINE SCROLL HORIZONTAL */
+        footer { background: #111; border-top: 2px solid #333; display: flex; flex-direction: column; overflow: hidden; }
+        .timeline-scroll { overflow-x: scroll; overflow-y: hidden; background: #08080a; flex-grow: 1; position: relative; }
+        .timeline-content { position: relative; width: 150000px; height: 100%; padding: 10px 0; }
+        
+        .track { height: 60px; background: var(--track); margin-bottom: 10px; position: relative; border-bottom: 1px solid #222; width: 100%; }
+        .playhead { position: absolute; top: 0; left: 0; width: 2px; height: 100%; background: red; z-index: 100; box-shadow: 0 0 10px red; pointer-events: none; }
+        
         .clip { position: absolute; height: 50px; top: 5px; background: var(--neon); color: black; border-radius: 4px; display: flex; align-items: center; padding: 0 10px; font-size: 11px; font-weight: bold; }
-        .btn { background: #222; color: white; border: 1px solid var(--neon); padding: 10px; border-radius: 6px; cursor: pointer; }
-        .btn:hover { background: var(--neon); color: black; }
-        input, textarea { width: 100%; background: #000; color: white; border: 1px solid #444; padding: 8px; border-radius: 4px; box-sizing: border-box; }
+        .clip-audio { background: #00ff88; }
+
+        /* UI */
+        .btn { background: #222; color: white; border: 1px solid #444; padding: 10px; border-radius: 6px; cursor: pointer; }
+        .btn:hover { border-color: var(--neon); }
+        textarea { width: 100%; background: #000; color: white; border: 1px solid #444; padding: 8px; border-radius: 4px; }
+        
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
     </style>
 </head>
 <body>
 
 <header>
-    <div class="logo">NEURAL-CUT PRO</div>
+    <div class="logo">NEURAL-CUT v8.0</div>
     <div id="clock" style="font-family: monospace; font-size: 20px;">00:00:00</div>
-    <button class="btn" onclick="exportar()">EXPORTAR VIDEO</button>
+    <button class="btn-download" id="exportBtn" onclick="toggleGrabacion()">🎥 DESCARGAR VIDEO (MP4)</button>
 </header>
 
 <main>
     <aside class="sidebar">
-        <h3>1. Multimedia</h3>
-        <input type="file" id="mediaInput" multiple accept="image/*" class="btn">
+        <h3>1. Imágenes</h3>
+        <input type="file" id="mediaIn" multiple accept="image/*" class="btn">
         <label>Duración (seg):</label>
-        <input type="number" id="clipDur" value="5">
-        <hr style="border:1px solid #333">
-        <h3>2. Clonador de Voz</h3>
-        <button class="btn" id="recordBtn" onclick="toggleGrabarVoz()">🎙️ GRABAR MI VOZ (5 seg)</button>
-        <textarea id="textoIA" rows="3" placeholder="Escribe aquí..."></textarea>
-        <button class="btn" style="background: var(--neon); color:black" onclick="clonarYSintetizar()">🔊 AÑADIR VOZ A LÍNEA DE TIEMPO</button>
+        <input type="number" id="imgDur" value="5" style="width: 50px; background: #000; color: white;">
+        
+        <hr style="border-color: #333">
+        
+        <h3>2. Clonar Voz</h3>
+        <button class="btn" id="recBtn" onclick="grabarVoz()">🎙️ GRABAR MI TONO</button>
+        <textarea id="textoIA" rows="3" placeholder="Tu texto aquí..."></textarea>
+        <button class="btn" style="background: #00ff88; color: black;" onclick="addAudio()">🔊 AÑADIR A LÍNEA</button>
     </aside>
 
     <section id="preview-box">
         <canvas id="mainCanvas"></canvas>
-        <div style="margin-top: 20px; display: flex; gap: 10px;">
-            <button class="btn" onclick="reiniciar()">⏮</button>
-            <button class="btn" id="playBtn" onclick="togglePlay()">▶ PLAY</button>
+        <div style="margin-top: 15px; display: flex; gap: 10px;">
+            <button class="btn" onclick="reset()">⏮</button>
+            <button class="btn" id="playBtn" onclick="togglePlay()" style="width: 100px; background: var(--neon); color: black;">▶ PLAY</button>
         </div>
     </section>
 </main>
 
 <footer>
-    <div class="timeline-container">
-        <div class="playhead" id="playhead"></div>
-        <div class="track" id="videoTrack"></div>
-        <div class="track" id="audioTrack"></div>
+    <div class="timeline-scroll" id="scrollArea">
+        <div class="timeline-content">
+            <div class="playhead" id="playhead"></div>
+            <div class="track" id="v-track"><small style="color:var(--neon)">IMÁGENES</small></div>
+            <div class="track" id="a-track"><small style="color:#00ff88">AUDIO CLONADO</small></div>
+        </div>
     </div>
 </footer>
 
@@ -66,119 +84,148 @@
     const ctx = canvas.getContext('2d');
     const playhead = document.getElementById('playhead');
     const clock = document.getElementById('clock');
-    canvas.width = 1920; canvas.height = 1080;
-
+    const scrollArea = document.getElementById('scrollArea');
+    
+    canvas.width = 1280; canvas.height = 720;
+    
+    let time = 0;
     let isPlaying = false;
-    let time = 0; 
-    let timelineAssets = [];
-    let audioClips = []; // Nuevo array para secuenciar audio
+    let assets = [];
+    let clipsAudio = [];
     let userPitch = 1.0;
+    
+    // Motor de Grabación
+    let mediaRecorder;
+    let recordedChunks = [];
+    let isExporting = false;
 
     // --- CARGAR IMÁGENES ---
-    document.getElementById('mediaInput').onchange = function(e) {
-        const durSeg = parseInt(document.getElementById('clipDur').value);
+    document.getElementById('mediaIn').onchange = (e) => {
+        const dur = parseFloat(document.getElementById('imgDur').value);
         for (let file of e.target.files) {
-            const url = URL.createObjectURL(file);
             const img = new Image();
-            img.src = url;
+            img.src = URL.createObjectURL(file);
             img.onload = () => {
-                const asset = { img, start: time, end: time + (durSeg * 20), name: file.name };
-                timelineAssets.push(asset);
-                crearClipUI(asset, 'videoTrack', var(--neon));
-                time = asset.end; // Auto-avance para la siguiente imagen
-                dibujar();
+                const clip = { img, start: time, end: time + (dur * 40), name: file.name };
+                assets.push(clip);
+                createClipUI(clip, 'v-track', 'clip');
+                time = clip.end;
+                draw();
             };
         }
     };
 
-    function crearClipUI(obj, trackId, color) {
+    function createClipUI(obj, trackId, css) {
         const div = document.createElement('div');
-        div.className = 'clip';
+        div.className = css;
         div.style.left = obj.start + "px";
         div.style.width = (obj.end - obj.start) + "px";
-        if(color) div.style.background = color;
-        div.innerText = obj.name || "AUDIO";
+        div.innerText = obj.name || "VOZ";
         document.getElementById(trackId).appendChild(div);
     }
 
     // --- CLONAR VOZ ---
-    async function toggleGrabarVoz() {
-        const btn = document.getElementById('recordBtn');
-        btn.innerText = "🔴 GRABANDO...";
+    async function grabarVoz() {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        const mediaRecorder = new MediaRecorder(stream);
-        mediaRecorder.onstop = () => {
-            userPitch = 0.85; // Modulación basada en tu voz
-            btn.innerText = "✅ VOZ CLONADA";
+        const r = new MediaRecorder(stream);
+        document.getElementById('recBtn').innerText = "🔴 GRABANDO...";
+        r.onstop = () => {
+            userPitch = 0.85; 
+            document.getElementById('recBtn').innerText = "✅ VOZ CLONADA";
         };
-        mediaRecorder.start();
-        setTimeout(() => mediaRecorder.stop(), 5000);
+        r.start();
+        setTimeout(() => r.stop(), 4000);
     }
 
-    function clonarYSintetizar() {
-        const texto = document.getElementById('textoIA').value;
-        if (!texto) return;
-        const duracionEstimada = texto.length * 2; // px
-        const audioObj = {
-            texto: texto,
-            start: time,
-            disparado: false // Flag para que no se repita en bucle
-        };
-        audioClips.push(audioObj);
-        crearClipUI({start: time, end: time + duracionEstimada, name: "VOZ: "+texto.substring(0,10)}, 'audioTrack', '#00ff88');
+    function addAudio() {
+        const txt = document.getElementById('textoIA').value;
+        if(!txt) return;
+        const clip = { texto: txt, start: time, disparado: false, end: time + 200 };
+        clipsAudio.push(clip);
+        createClipUI(clip, 'a-track', 'clip clip-audio');
     }
 
-    // --- MOTOR DE REPRODUCCIÓN (SINCRONIZADO) ---
-    function dibujar() {
-        ctx.fillStyle = "#000";
+    // --- REPRODUCCIÓN Y GRABACIÓN ---
+    function draw() {
+        ctx.fillStyle = "black";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        timelineAssets.forEach(asset => {
-            if (time >= asset.start && time <= asset.end) {
-                ctx.drawImage(asset.img, 0, 0, canvas.width, canvas.height);
-            }
-        });
-    }
-
-    function secuenciarAudio() {
-        audioClips.forEach(clip => {
-            // Si el cabezal pasa por el punto de inicio del audio y no ha sido disparado
-            if (time >= clip.start && !clip.disparado && isPlaying) {
-                const msg = new SpeechSynthesisUtterance(clip.texto);
-                msg.pitch = userPitch;
-                msg.rate = 0.95;
-                const voices = window.speechSynthesis.getVoices();
-                msg.voice = voices.find(v => v.lang.includes('es-MX')) || voices[0];
-                window.speechSynthesis.speak(msg);
-                clip.disparado = true; // Marcar como reproducido
-            }
+        assets.forEach(a => {
+            if(time >= a.start && time <= a.end) ctx.drawImage(a.img, 0, 0, canvas.width, canvas.height);
         });
     }
 
     function togglePlay() {
         isPlaying = !isPlaying;
-        document.getElementById('playBtn').innerText = isPlaying ? "⏸ PAUSE" : "▶ PLAY";
-        if (isPlaying) animar();
+        document.getElementById('playBtn').innerText = isPlaying ? "⏸ PAUSA" : "▶ PLAY";
+        if(isPlaying) loop();
     }
 
-    function animar() {
-        if (!isPlaying) return;
-        time += 1.5; 
+    function loop() {
+        if(!isPlaying) return;
+        time += 1.5;
         playhead.style.left = time + "px";
-        clock.innerText = `00:00:${Math.floor(time/20).toString().padStart(2,'0')}`;
         
-        dibujar();
-        secuenciarAudio(); // Verificar si toca hablar
-        requestAnimationFrame(animar);
+        // Auto-scroll horizontal
+        if(time > scrollArea.scrollLeft + 600) scrollArea.scrollLeft += 2;
+
+        clock.innerText = `00:00:${Math.floor(time/40).toString().padStart(2,'0')}`;
+        draw();
+
+        clipsAudio.forEach(c => {
+            if(time >= c.start && !c.disparado) {
+                const u = new SpeechSynthesisUtterance(c.texto);
+                u.pitch = userPitch;
+                u.voice = window.speechSynthesis.getVoices().find(v => v.lang.includes('es-MX'));
+                window.speechSynthesis.speak(u);
+                c.disparado = true;
+            }
+        });
+        requestAnimationFrame(loop);
     }
 
-    function reiniciar() {
-        isPlaying = false;
-        time = 0;
-        playhead.style.left = "0";
-        audioClips.forEach(c => c.disparado = false); // Resetear disparadores
-        document.getElementById('playBtn').innerText = "▶ PLAY";
-        dibujar();
+    function reset() { 
+        time = 0; 
+        isPlaying = false; 
+        playhead.style.left = "0"; 
+        scrollArea.scrollLeft = 0; 
+        clipsAudio.forEach(c => c.disparado = false);
+        draw(); 
     }
+
+    // --- FUNCIÓN DE DESCARGA (EXPORTACIÓN) ---
+    function toggleGrabacion() {
+        if (!isExporting) {
+            alert("Iniciando grabación del proyecto. El video se reproducirá una vez para capturarlo.");
+            recordedChunks = [];
+            const stream = canvas.captureStream(30); // Captura a 30 FPS
+            mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+            
+            mediaRecorder.ondataavailable = (e) => recordedChunks.push(e.data);
+            mediaRecorder.onstop = descargarArchivo;
+            
+            mediaRecorder.start();
+            isExporting = true;
+            document.getElementById('exportBtn').innerText = "🛑 DETENER Y GUARDAR";
+            reset();
+            togglePlay();
+        } else {
+            mediaRecorder.stop();
+            isExporting = false;
+            document.getElementById('exportBtn').innerText = "🎥 DESCARGAR VIDEO (MP4)";
+            togglePlay();
+        }
+    }
+
+    function descargarArchivo() {
+        const blob = new Blob(recordedChunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'mi-video-neuralcut.webm';
+        a.click();
+    }
+
+    draw();
 </script>
 </body>
 </html>

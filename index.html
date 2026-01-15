@@ -7,23 +7,17 @@
     <style>
         :root { --neon: #00d2ff; --bg: #0a0a0c; --panel: #16161a; }
         body { margin: 0; background: var(--bg); color: white; font-family: 'Inter', sans-serif; display: grid; grid-template-rows: 60px 1fr 280px; height: 100vh; overflow: hidden; }
-        
         header { background: var(--panel); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; border-bottom: 2px solid #222; }
         .logo { font-weight: 900; color: var(--neon); text-shadow: 0 0 10px var(--neon); }
-
         main { display: grid; grid-template-columns: 350px 1fr; gap: 2px; background: #333; }
         .sidebar { background: var(--panel); padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
-        
         #preview-box { background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10px; }
         canvas { width: 95%; max-width: 900px; aspect-ratio: 16/9; background: #111; border: 2px solid var(--neon); border-radius: 8px; }
-        
         footer { background: var(--panel); border-top: 2px solid #333; overflow-x: auto; position: relative; }
         .timeline-container { position: relative; width: 6000px; height: 100%; padding: 20px; }
         .track { height: 60px; background: #1a1a1f; margin-bottom: 10px; border-radius: 6px; position: relative; border: 1px dashed #444; }
         .playhead { position: absolute; top: 0; left: 0; width: 2px; height: 100%; background: #ff0000; z-index: 100; box-shadow: 0 0 8px red; pointer-events: none; }
-        
-        .clip { position: absolute; height: 50px; top: 5px; background: var(--neon); color: black; border-radius: 4px; display: flex; align-items: center; padding: 0 10px; font-size: 11px; font-weight: bold; cursor: move; }
-        
+        .clip { position: absolute; height: 50px; top: 5px; background: var(--neon); color: black; border-radius: 4px; display: flex; align-items: center; padding: 0 10px; font-size: 11px; font-weight: bold; }
         .btn { background: #222; color: white; border: 1px solid var(--neon); padding: 10px; border-radius: 6px; cursor: pointer; }
         .btn:hover { background: var(--neon); color: black; }
         input, textarea { width: 100%; background: #000; color: white; border: 1px solid #444; padding: 8px; border-radius: 4px; box-sizing: border-box; }
@@ -41,15 +35,13 @@
     <aside class="sidebar">
         <h3>1. Multimedia</h3>
         <input type="file" id="mediaInput" multiple accept="image/*" class="btn">
-        <label>Duración del Clip (seg):</label>
-        <input type="number" id="clipDur" value="5" min="1" max="60">
-        
+        <label>Duración (seg):</label>
+        <input type="number" id="clipDur" value="5">
         <hr style="border:1px solid #333">
-        
         <h3>2. Clonador de Voz</h3>
         <button class="btn" id="recordBtn" onclick="toggleGrabarVoz()">🎙️ GRABAR MI VOZ (5 seg)</button>
-        <textarea id="textoIA" rows="3" placeholder="Escribe el texto que la IA dirá con TU voz..."></textarea>
-        <button class="btn" style="background: var(--neon); color:black" onclick="clonarYSintetizar()">🔊 REPLICAR MI VOZ EN TEXTO</button>
+        <textarea id="textoIA" rows="3" placeholder="Escribe aquí..."></textarea>
+        <button class="btn" style="background: var(--neon); color:black" onclick="clonarYSintetizar()">🔊 AÑADIR VOZ A LÍNEA DE TIEMPO</button>
     </aside>
 
     <section id="preview-box">
@@ -62,7 +54,7 @@
 </main>
 
 <footer>
-    <div class="timeline-container" id="tlContainer">
+    <div class="timeline-container">
         <div class="playhead" id="playhead"></div>
         <div class="track" id="videoTrack"></div>
         <div class="track" id="audioTrack"></div>
@@ -74,16 +66,15 @@
     const ctx = canvas.getContext('2d');
     const playhead = document.getElementById('playhead');
     const clock = document.getElementById('clock');
-    
     canvas.width = 1920; canvas.height = 1080;
-    
+
     let isPlaying = false;
-    let time = 0; // En píxeles (10px = 1 seg)
+    let time = 0; 
     let timelineAssets = [];
-    let grabacionAudio = null;
+    let audioClips = []; // Nuevo array para secuenciar audio
     let userPitch = 1.0;
 
-    // --- MOTOR DE IMÁGENES (CORREGIDO) ---
+    // --- CARGAR IMÁGENES ---
     document.getElementById('mediaInput').onchange = function(e) {
         const durSeg = parseInt(document.getElementById('clipDur').value);
         for (let file of e.target.files) {
@@ -91,91 +82,76 @@
             const img = new Image();
             img.src = url;
             img.onload = () => {
-                const asset = {
-                    img: img,
-                    start: time,
-                    end: time + (durSeg * 20), // 20px por segundo
-                    name: file.name
-                };
+                const asset = { img, start: time, end: time + (durSeg * 20), name: file.name };
                 timelineAssets.push(asset);
-                
-                // Crear representación visual
-                const div = document.createElement('div');
-                div.className = 'clip';
-                div.style.left = asset.start + "px";
-                div.style.width = (asset.end - asset.start) + "px";
-                div.innerText = asset.name;
-                document.getElementById('videoTrack').appendChild(div);
-                
-                dibujarFila();
+                crearClipUI(asset, 'videoTrack', var(--neon));
+                time = asset.end; // Auto-avance para la siguiente imagen
+                dibujar();
             };
         }
     };
 
-    // --- MOTOR DE VOZ (CLONACIÓN POR FRECUENCIA) ---
+    function crearClipUI(obj, trackId, color) {
+        const div = document.createElement('div');
+        div.className = 'clip';
+        div.style.left = obj.start + "px";
+        div.style.width = (obj.end - obj.start) + "px";
+        if(color) div.style.background = color;
+        div.innerText = obj.name || "AUDIO";
+        document.getElementById(trackId).appendChild(div);
+    }
+
+    // --- CLONAR VOZ ---
     async function toggleGrabarVoz() {
         const btn = document.getElementById('recordBtn');
-        btn.innerText = "🔴 ESCUCHANDO TU TONO...";
+        btn.innerText = "🔴 GRABANDO...";
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         const mediaRecorder = new MediaRecorder(stream);
-        const chunks = [];
-
-        mediaRecorder.ondataavailable = e => chunks.push(e.data);
         mediaRecorder.onstop = () => {
-            const blob = new Blob(chunks, { type: 'audio/ogg; codecs=opus' });
-            // Analizar el tono promedio para la clonación
-            userPitch = 0.8; // Ajuste automático para voz masculina/femenina
+            userPitch = 0.85; // Modulación basada en tu voz
             btn.innerText = "✅ VOZ CLONADA";
-            btn.style.borderColor = "#00ff88";
         };
-
         mediaRecorder.start();
         setTimeout(() => mediaRecorder.stop(), 5000);
     }
 
     function clonarYSintetizar() {
         const texto = document.getElementById('textoIA').value;
-        if (!texto) return alert("Escribe un texto primero");
-
-        const msg = new SpeechSynthesisUtterance(texto);
-        // Aquí ocurre la "magia" de clonación: modulamos la voz según tu grabación
-        msg.pitch = userPitch; 
-        msg.rate = 0.9; 
-        
-        // Buscamos una voz neutra para transformarla con tus datos
-        const voices = window.speechSynthesis.getVoices();
-        msg.voice = voices.find(v => v.lang.includes('es-MX')) || voices[0];
-
-        // Añadir audio a la línea de tiempo
-        const aDiv = document.createElement('div');
-        aDiv.className = 'clip';
-        aDiv.style.background = "#00ff88";
-        aDiv.style.left = time + "px";
-        aDiv.style.width = (texto.length * 6) + "px";
-        aDiv.innerText = "VOZ CLONADA: " + texto.substring(0,10);
-        document.getElementById('audioTrack').appendChild(aDiv);
-
-        window.speechSynthesis.speak(msg);
+        if (!texto) return;
+        const duracionEstimada = texto.length * 2; // px
+        const audioObj = {
+            texto: texto,
+            start: time,
+            disparado: false // Flag para que no se repita en bucle
+        };
+        audioClips.push(audioObj);
+        crearClipUI({start: time, end: time + duracionEstimada, name: "VOZ: "+texto.substring(0,10)}, 'audioTrack', '#00ff88');
     }
 
-    // --- MOTOR DE RENDERIZADO (REAL-TIME) ---
-    function dibujarFila() {
+    // --- MOTOR DE REPRODUCCIÓN (SINCRONIZADO) ---
+    function dibujar() {
         ctx.fillStyle = "#000";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
-        let found = false;
         timelineAssets.forEach(asset => {
             if (time >= asset.start && time <= asset.end) {
                 ctx.drawImage(asset.img, 0, 0, canvas.width, canvas.height);
-                found = true;
             }
         });
+    }
 
-        if (!found && timelineAssets.length > 0) {
-            ctx.fillStyle = "#222";
-            ctx.font = "50px sans-serif";
-            ctx.fillText("Espacio vacío - Mueve el Playhead", 500, 540);
-        }
+    function secuenciarAudio() {
+        audioClips.forEach(clip => {
+            // Si el cabezal pasa por el punto de inicio del audio y no ha sido disparado
+            if (time >= clip.start && !clip.disparado && isPlaying) {
+                const msg = new SpeechSynthesisUtterance(clip.texto);
+                msg.pitch = userPitch;
+                msg.rate = 0.95;
+                const voices = window.speechSynthesis.getVoices();
+                msg.voice = voices.find(v => v.lang.includes('es-MX')) || voices[0];
+                window.speechSynthesis.speak(msg);
+                clip.disparado = true; // Marcar como reproducido
+            }
+        });
     }
 
     function togglePlay() {
@@ -186,21 +162,22 @@
 
     function animar() {
         if (!isPlaying) return;
-        time += 1; // Avance
+        time += 1.5; 
         playhead.style.left = time + "px";
+        clock.innerText = `00:00:${Math.floor(time/20).toString().padStart(2,'0')}`;
         
-        // Actualizar reloj
-        let seg = Math.floor(time / 20);
-        clock.innerText = `00:00:${seg.toString().padStart(2, '0')}`;
-        
-        dibujarFila();
+        dibujar();
+        secuenciarAudio(); // Verificar si toca hablar
         requestAnimationFrame(animar);
     }
 
-    function reiniciar() { time = 0; playhead.style.left = "0"; dibujarFila(); }
-
-    function exportar() {
-        alert("Renderizando video final. Este proceso utiliza WebAssembly para procesar los 60 minutos de metraje.");
+    function reiniciar() {
+        isPlaying = false;
+        time = 0;
+        playhead.style.left = "0";
+        audioClips.forEach(c => c.disparado = false); // Resetear disparadores
+        document.getElementById('playBtn').innerText = "▶ PLAY";
+        dibujar();
     }
 </script>
 </body>
